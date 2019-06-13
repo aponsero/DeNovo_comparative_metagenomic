@@ -1,0 +1,99 @@
+---
+title: "Correlation analysis"
+output: html_document
+params:
+  taxo_file : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/SimSetP1_profiles.csv"
+  out_dir : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test"
+  S_Jaccard : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/results_no_filters/mat_presenceAbsence_jaccard.csv"
+  S_BC : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/results_no_filters/mat_abundance_braycurtis.csv"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(gplots)
+library(ggplot2)
+library(RColorBrewer)
+```
+
+## Exploration of Taxonomic diversity
+
+```{r taxo}
+TaxData <- read.csv(file=params$taxo_file, header=TRUE, sep=",")
+```
+
+### Alpha-diversity
+
+```{r ataxo}
+##### Alpha-diversity
+# calculate Simpson's 1-D Index of Diversity for each site. # closer to 1 = greater diversity
+simpson <- diversity(TaxData, "simpson")
+#calculate Shannon index. Typically ranges from 1.5 - 3.4, higher = more diverse 
+shannon <- diversity(TaxData)
+#Plot
+par(mfrow = c(1, 2))
+hist(simpson)
+hist(shannon)
+```
+
+### Beta-diversity
+
+Exports two Beta-diversity matrices (Tax_Jaccard_matrix.csv and Tax_BC_matrix.csv)
+
+```{r btaxo}
+par(mfrow = c(1, 2))
+Tax_bc <- vegdist(TaxData, "bray")
+Tax_jaccard <- vegdist(TaxData, "jaccard")
+hist(Tax_bc, xlim = range(0.0,1.0))
+hist(Tax_jaccard, xlim = range(0.0,1.0))
+
+#create output matrices
+name_bray<-paste(params$out_dir,"Tax_BC_matrix.csv", sep = "/", collapse = NULL)
+write.table(as.matrix(Tax_bc), file = name_bray, sep = ",")
+name_jaccard<-paste(params$out_dir,"Tax_jaccard_matrix.csv", sep = "/", collapse = NULL)
+write.table(as.matrix(Tax_jaccard), file = name_jaccard, sep = ",")
+
+#create vectors of half matrices
+vec_T_jaccard<-c(Tax_jaccard)
+vec_T_BC<-c(Tax_bc)
+```
+
+## Exploration of SIMKA beta-diversity
+```{r simka load}
+Simka_jaccard <- read.csv(file=params$S_Jaccard, header=FALSE, sep=",")
+Simka_BC <- read.csv(file=params$S_BC, header=FALSE, sep=",")
+```
+
+```{r simka matrices cleanup}
+#need to add chunk to remove first column and headers
+vec_S_jaccard<-c(Simka_jaccard[lower.tri(Simka_jaccard)])
+vec_S_BC<-c(Simka_BC[lower.tri(Simka_BC)])
+```
+
+## Correlation between taxo and Simka distances
+```{r Jaccard correlations}
+pearson_Jaccard <- cor.test(vec_T_jaccard, vec_S_jaccard, method = "pearson")
+pearson_Jaccard
+
+spearman_Jaccard <- cor.test(vec_T_jaccard, vec_S_jaccard, method = "spearman")
+spearman_Jaccard
+```
+
+```{r BC correlations}
+pearson_BC <- cor.test(vec_T_BC, vec_S_BC, method = "pearson")
+pearson_BC
+
+spearman_BC <- cor.test(vec_T_BC, vec_S_BC, method = "spearman")
+spearman_BC
+```
+
+```{r plots}
+all.data <- data.frame(vec_T_jaccard, vec_S_jaccard, vec_T_BC, vec_S_BC)
+
+pg_j <- ggplot(all.data, aes(vec_T_jaccard, vec_S_jaccard)) + coord_cartesian(xlim=c(0,1), ylim=c(0,1))+ geom_point() + ggtitle("Jaccard distances") + xlab("Jaccard taxonomy") + ylab("Jaccard kmers")
+pg_j
+
+pg_bc <- ggplot(all.data, aes(vec_T_BC, vec_S_BC)) + coord_cartesian(xlim=c(0,1), ylim=c(0,1))+ geom_point() + ggtitle("Bray-Crutis distances") + xlab("Bray-Crutis taxonomy") + ylab("Bray-Crutis kmers")
+pg_bc
+
+```
