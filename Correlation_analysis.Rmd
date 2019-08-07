@@ -2,10 +2,10 @@
 title: "Correlation analysis"
 output: html_document
 params:
-  taxo_file : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/SimSetP1_profiles.csv"
-  out_dir : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test"
-  S_Jaccard : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/results_no_filters/mat_presenceAbsence_jaccard.csv"
-  S_BC : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/test/results_no_filters/mat_abundance_braycurtis.csv"
+  taxo_file : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/SimSetQ1-SQ/SimSetQ1-SQ_profiles.csv"
+  out_dir : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/SimSetQ1-SQ"
+  S_Jaccard : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/SimSetQ1-SQ/results_no_filters/mat_presenceAbsence_jaccard.csv"
+  S_BC : "/Users/aponsero/Documents/UA_POSTDOC/projects/LIBRA_review/Exp1/SimSetQ1-SQ/results_no_filters/mat_abundance_braycurtis.csv"
 ---
 
 ```{r setup, include=FALSE}
@@ -14,12 +14,35 @@ library(vegan)
 library(gplots)
 library(ggplot2)
 library(RColorBrewer)
+library(tidyr)
+library(dplyr)
 ```
 
 ## Exploration of Taxonomic diversity
 
 ```{r taxo}
+params$taxo_file
 TaxData <- read.csv(file=params$taxo_file, header=TRUE, sep=",")
+
+#prepare for distribution heatmap
+df_TaxData <- TaxData
+df_TaxData$sample <- 1:nrow(TaxData)
+Tax_long <- gather(data = df_TaxData, key = genome, value = Abundance, -sample)
+
+composition_heatmap <- ggplot(data = Tax_long, mapping = aes(x = sample,
+                                                       y = genome,
+                                                       fill = Abundance)) +
+  geom_tile() +
+  xlab(label = "Sample")
+
+composition_heatmap
+
+# distribution of abundance of read for each genomes
+ggplot(Tax_abundance, aes(x=sample, y=Abundance, color=genome)) +
+  geom_bar(stat="identity")+
+  theme(legend.position = "none")
+  
+
 ```
 
 ### Alpha-diversity
@@ -69,6 +92,21 @@ Simka_BC <- read.csv(file=params$S_BC, header=FALSE, sep=",")
 vec_S_jaccard<-c(Simka_jaccard[lower.tri(Simka_jaccard)])
 vec_S_BC<-c(Simka_BC[lower.tri(Simka_BC)])
 ```
+
+## generating Delta table
+```{r generating delta-tables}
+#Jaccard delta list
+delta_jacc <- vec_T_jaccard - vec_S_jaccard
+name_djac <-paste(params$out_dir,"delta_Jacc_list.csv", sep = "/", collapse = NULL)
+write.table(as.matrix(delta_jacc), file = name_djac, sep = ",")
+
+#BC delta list
+delta_bc <- vec_T_BC - vec_S_BC
+name_dbc <-paste(params$out_dir,"delta_bc_list.csv", sep = "/", collapse = NULL)
+write.table(as.matrix(delta_bc), file = name_dbc, sep = ",")
+```
+
+
 
 ## Correlation between taxo and Simka distances
 ```{r Jaccard correlations}
